@@ -20,11 +20,15 @@ img_court = ski_io.imread('fullcourt.png')
 
 # %%
 import h5py
-with h5py.File('eval.hdf5', 'r') as f:
+with h5py.File('eval_result_shallow_0127_mse.hdf5', 'r') as f:
     pos_ = f['pos'][()]
     len_ = f['len'][()]
+    epv_ = f['epv'][()]
+    one_hot_ = f['one_hot'][()]
+    val_ = np.argmax(one_hot_, axis=1)
     pos_ = pos_[:, :, -1]
     pos_ = np.reshape(pos_, [pos_.shape[0], pos_.shape[1], 11, 2])
+    
 
 # %%
 # cal shot chart
@@ -111,16 +115,26 @@ class Episode():
     
     @property
     def ani(self):
-        fig, ax = plt.subplots()
+        fig = plt.figure()
+        gs = gridspec.GridSpec(2, 1, height_ratios=[6, 1]) 
+        ax = plt.subplot(gs[0])
+        ax1 = plt.subplot(gs[1])
 
         def func(i):
+            if self.info is not None:
+                ax1.clear()
+                ax1.plot(time_str[:self.length], self.info[:self.length], c='r')
+                ax1.scatter(i, self.info[i], c='r')
+                ax1.set_xticks(list(range(0,self.length, self.length//6)))
+
             ax.clear()
             ax.imshow(img_court, extent=[0,94,0,50])
-            if self.info is not None:
-                ax.text(1, 1, str(self.info[i]), fontsize=12)
             ax.scatter(self.data[i, 1:6, 0], self.data[i, 1:6, 1], c='r', s=100)
             ax.scatter(self.data[i, 6:11, 0], self.data[i, 6:11, 1], c='b', s=100)
             ax.scatter(self.data[i, 0, 0], self.data[i, 0, 1], c='g')
+            if self.info is not None:
+                epv_str = '{:.2f}'.format(self.info[i, 0])
+                ax.text(1, 1, epv_str, fontsize=12)
             ax.set_xlim(-10, 104)
             ax.set_ylim(-10, 60)
             return _,
@@ -140,12 +154,12 @@ class Episode():
             ax1.clear()
             ax1.plot(time_str[:self.length], self.off_score, c='r')
             ax1.scatter(i, self.off_score[i], c='r')
-            ax1.set_xticks(list(range(0,self.length, 2)))
+            ax1.set_xticks(list(range(0,self.length, self.length//6)))
             
             ax2.clear()
             ax2.plot(time_str[:self.length], self.def_score, c='b')
             ax2.scatter(i, self.def_score[i], c='b')
-            ax2.set_xticks(list(range(0,self.length, 2)))
+            ax2.set_xticks(list(range(0,self.length, self.length//6)))
 
             ax.clear()
             ax.imshow(self.off_own[i].T, interpolation='nearest', cmap='Reds', alpha=0.5, origin='lower', extent=[46,94,0,50])
@@ -189,21 +203,18 @@ class Episode():
         writer = Writer(fps=self.FPS, metadata=dict(artist='Me'), bitrate=1800)
         self.ani_voronoi.save(filename, writer=writer)
 
-# %%
-i = 0
-e = Episode(pos_[i], len_[i], FPS=5)
-e.show_voronoi()
-
-# %%
-dirname = 'eval_result'
-if not os.path.exists(dirname):
-    os.makedirs(dirname)
-for i in range(pos_.shape[0]):
-    try:
-        e = Episode(pos_[i], len_[i], FPS=5)
-        e.output_voronoi('{}/{}.mp4'.format(dirname, i))
-    except Exception:
-        print(traceback.format_exc())
-    
-
 #%%
+# i = 0
+# e = Episode(pos_[i], len_[i], info=epv_[i], FPS=5)
+# e.show_ani()
+
+# %%
+# dirname = 'shallow_0127_mse'
+# if not os.path.exists(dirname):
+#     os.makedirs(dirname)
+# for i in range(pos_.shape[0]):
+#     try:
+#         e = Episode(pos_[i], len_[i], info=epv_[i], FPS=5)
+#         e.output_ani('{}/{}_{}.mp4'.format(dirname, i, val_[i]))
+#     except Exception:
+#         print(traceback.format_exc())
